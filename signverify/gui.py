@@ -1,13 +1,14 @@
 from PySide2 import QtWidgets
 from PySide2 import QtGui
 import base64
-import binascii
 
 from .crypto import (
     compare_pubkeys,
-    derive_pubkey,
-    sign_message,
     is_private_key,
+    is_address,
+    sign_message,
+    verify_signature_from_address,
+    verify_signature_from_pubkey,
 )
 
 
@@ -28,7 +29,7 @@ class SignWidget(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout()
         self.setLayout(layout)
 
-        layout.addWidget(QtWidgets.QLabel("Secret key (WIF)"))
+        layout.addWidget(QtWidgets.QLabel("Private key (WIF)"))
         self.privkey_edit = QtWidgets.QLineEdit()
         layout.addWidget(self.privkey_edit)
 
@@ -77,80 +78,64 @@ class VerifyWidget(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout()
         self.setLayout(layout)
 
+        layout.addWidget(QtWidgets.QLabel("Public key (hex) or bitcoin address"))
+        self.pubkey_edit = QtWidgets.QLineEdit()
+        layout.addWidget(self.pubkey_edit)
+
         layout.addWidget(QtWidgets.QLabel("Signature (Base64)"))
         self.signature_edit = QtWidgets.QTextEdit()
         self.signature_edit.setAcceptRichText(False)
         layout.addWidget(self.signature_edit)
 
-        layout.addWidget(QtWidgets.QLabel("Public key (hex)"))
-        self.pubkey_edit = QtWidgets.QLineEdit()
-        layout.addWidget(self.pubkey_edit)
-
-        layout.addWidget(
-            QtWidgets.QLabel("Public key derived from signature (compressed, hex)")
-        )
-        self.pubkey_display = QtWidgets.QTextEdit()
-        self.pubkey_display.setReadOnly(True)
-        layout.addWidget(self.pubkey_display)
+        sublayout = QtWidgets.QHBoxLayout()
+        layout.addLayout(sublayout)
+        sublayout.addWidget(QtWidgets.QLabel("Signature verification: "))
+        self.verification_label = QtWidgets.QLabel()
+        sublayout.addWidget(self.verification_label)
+        sublayout.addStretch(1)
 
         self._message: str = ""
         """Message to be signed"""
+        self._signature: str = ""
+        """Base64 representation of the signature"""
 
-        self.signature_edit.textChanged.connect(self._on_signature_or_message_updated)
-        self.pubkey_edit.textChanged.connect(self._on_input_pubkey_updated)
+        self.signature_edit.textChanged.connect(self._on_signature_updated)
+        self.pubkey_edit.textChanged.connect(self._on_input_updated)
 
     def set_message(self, message: str):
         self._message = message
-        self._on_signature_or_message_updated()
-
-    def _on_input_pubkey_updated(self, pubkey: str):
-        self.verify_keys_match(pubkey)
-
-    def _on_signature_or_message_updated(self):
-        self.pubkey_display.clear()
         self.verify_signature()
 
-    def verify_keys_match(self, *args):
-        """verify that the computed verifying key matches the pubkey
-        specified by the user. Adjust the color of the computed
-        pubkey accordingly"""
-        input_pubkey = self.pubkey_edit.text().strip()
-        computed_pubkey = self.pubkey_display.toPlainText()
+    def _on_signature_updated(self):
+        self._signature = self.signature_edit.toPlainText()
+        self.verify_signature()
 
-        if input_pubkey:
-            try:
-                key1 = bytes.fromhex(input_pubkey)
-                key2 = bytes.fromhex(computed_pubkey)
-            except ValueError:
-                color = "red"
-            else:
-                if compare_pubkeys(key1, key2):
-                    # keys match
-                    color = "blue"
-                else:
-                    # keys don't match
-                    color = "red"
-        else:
-            # no input key
-            color = "black"
-        self.pubkey_display.setHtml(f'<p style="color:{color};">{computed_pubkey}</p>')
+    def _on_input_updated(self):
+        self.verify_signature()
 
     def verify_signature(self):
-        """Verify signature matches the message, compute the
-        verifying public key and display it, then call
-        :meth:`verify_keys_match`"""
-        try:
-            # This can throw on invalid base64
-            sig = base64.b64decode(self.signature_edit.toPlainText(), validate=True)
-        except binascii.Error:
-            self.pubkey_display.setHtml(
-                '<p style="color:red;">Invalid base64 signature</p>'
-            )
+        """Verify that the signature matches the message for the specified public key
+        or address.
+        Display a green checkmark if it matches or a red X-mark if it doesn't.
+        """
+        key = self.pubkey_edit.text().strip()
+        if not key:
+            self.verification_label.clear()
             return
 
-        is_verified, pubkey = derive_pubkey(self._message, sig)
-        self.pubkey_display.setPlainText(pubkey.hex())
-        self.verify_keys_match()
+        if is_address(key):
+            is_verified = verify_signature_from_address(
+                key, self._message, self._signature
+            )
+        else:
+            is_verified = verify_signature_from_pubkey(
+                key, self._message, self._signature
+            )
+
+        if is_verified:
+            self.verification_label.setText('<p style="color:green;">✓ OK</p>')
+        else:
+            self.verification_label.setText('<p style="color:red;">✗ Bad signature or key</p>')
 
 
 class MainWidget(QtWidgets.QWidget):
