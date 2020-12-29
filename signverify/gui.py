@@ -5,7 +5,7 @@ import binascii
 
 from .crypto import (
     compare_pubkeys,
-    verify_signature,
+    derive_pubkey,
     sign_message,
     is_private_key,
 )
@@ -86,7 +86,9 @@ class VerifyWidget(QtWidgets.QWidget):
         self.pubkey_edit = QtWidgets.QLineEdit()
         layout.addWidget(self.pubkey_edit)
 
-        layout.addWidget(QtWidgets.QLabel("Public key derived from signature (compressed, hex)"))
+        layout.addWidget(
+            QtWidgets.QLabel("Public key derived from signature (compressed, hex)")
+        )
         self.pubkey_display = QtWidgets.QTextEdit()
         self.pubkey_display.setReadOnly(True)
         layout.addWidget(self.pubkey_display)
@@ -139,15 +141,14 @@ class VerifyWidget(QtWidgets.QWidget):
         :meth:`verify_keys_match`"""
         try:
             # This can throw on invalid base64
-            sig = base64.b64decode(self.signature_edit.toPlainText(),
-                                   validate=True)
+            sig = base64.b64decode(self.signature_edit.toPlainText(), validate=True)
         except binascii.Error:
             self.pubkey_display.setHtml(
                 '<p style="color:red;">Invalid base64 signature</p>'
             )
             return
 
-        is_verified, pubkey = verify_signature(self._message, sig)
+        is_verified, pubkey = derive_pubkey(self._message, sig)
         self.pubkey_display.setPlainText(pubkey.hex())
         self.verify_keys_match()
 

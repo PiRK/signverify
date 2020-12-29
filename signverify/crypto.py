@@ -26,15 +26,19 @@ def verify_signature_with_privkey(
     return True
 
 
-def verify_signature(
-    message: str, signature: bytes) -> Tuple[bool, bytes]:
-    """Verify a signed message.
+def derive_pubkey(message: str, signature: bytes) -> Tuple[bool, bytes]:
+    """Derive a public key from a message and signature.
 
-    Return a tuple (is_verified, public_key)
+    Return a tuple (is_verified, public_key). The public key, is returned
+    as a compressed key.
 
     If public_key is a null bytestring, it means deriving the public
     key from the signature failed. In this case is_verified is expected
     to be always False.
+
+    If is_verified is True, it only means that this function was able to
+    derive a public key from the message and signature. This public key
+    still needs to be checked against another key or bitcoin address.
     """
     h = bitcoin.Hash(bitcoin.msg_magic(message.encode("utf-8")))
     try:
@@ -52,9 +56,20 @@ def verify_signature(
 
 
 def compare_pubkeys(pubkey1: bytes, pubkey2: bytes) -> bool:
+    """Compare two public keys on the SECP256k1 curve. Return True
+    if they match.
+
+    The function does accept and automatically detect the type of point
+    encoding used. It supports the :term:`raw encoding`,
+    :term:`uncompressed`, :term:`compressed` and :term:`hybrid` encodings.
+    """
     try:
-        key1 = ecdsa.keys.VerifyingKey.from_string(pubkey1, curve=ecdsa.curves.SECP256k1)
-        key2 = ecdsa.keys.VerifyingKey.from_string(pubkey2, curve=ecdsa.curves.SECP256k1)
+        key1 = ecdsa.keys.VerifyingKey.from_string(
+            pubkey1, curve=ecdsa.curves.SECP256k1
+        )
+        key2 = ecdsa.keys.VerifyingKey.from_string(
+            pubkey2, curve=ecdsa.curves.SECP256k1
+        )
     except ecdsa.keys.MalformedPointError:
         print("malformed point")
         return False
