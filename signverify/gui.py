@@ -144,11 +144,11 @@ class VerifyWidget(QtWidgets.QWidget):
             )
 
 
-class MainWidget(QtWidgets.QWidget):
-    """Central widget in the main window."""
+class SignVerifyWidget(QtWidgets.QWidget):
+    """Widget handling the signing of message and the verification of signatures"""
 
     def __init__(self, parent=None):
-        super(MainWidget, self).__init__(parent)
+        super().__init__(parent)
 
         layout = QtWidgets.QVBoxLayout()
         self.setLayout(layout)
@@ -173,6 +173,21 @@ class MainWidget(QtWidgets.QWidget):
         msg = self.message_edit.toPlainText()
         self.sign_widget.set_message(msg)
         self.verify_widget.set_message(msg)
+
+
+class MultisigWidget(QtWidgets.QWidget):
+    """Widget handling the verification of multisig redeem scripts"""
+    pass
+
+
+class MainWidget(QtWidgets.QTabWidget):
+    """Central widget in the main window."""
+
+    def __init__(self, parent=None):
+        super(MainWidget, self).__init__(parent)
+
+        self.addTab(SignVerifyWidget(), "Sign/verify messages")
+        self.addTab(MultisigWidget(), "Verify multisig script")
 
 
 class MainWindow(QtWidgets.QMainWindow):
