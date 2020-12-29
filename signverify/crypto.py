@@ -1,10 +1,14 @@
 import base64
 import binascii
 import ecdsa
-from typing import Tuple
+from typing import Sequence, Tuple
 
 from electroncash import bitcoin
-from electroncash.address import Address
+from electroncash.address import Address, Script
+
+
+# The node software set this limit to 20, but all electrum forks seem to limit it to 15
+MAX_PUBKEYS_PER_MULTISIG = 15
 
 
 def is_private_key(wif_privkey: str) -> bool:
@@ -126,3 +130,31 @@ def verify_signature_with_privkey(
     except Exception:
         return False
     return True
+
+
+def pubkeys_to_multisig_p2sh(pubkeys: Sequence[str], m: int) -> str:
+    """
+
+    :param pubkeys: List of publics keys, as hexadecimal strings.
+        The keys will be sorted.
+    :param m: Minimal number of signatures to unlock the multisig script
+        (it is the M in M-of-N)
+    :return: p2sh CashAddr
+    """
+    pubkeys_bytes = [bytes.fromhex(pubkey) for pubkey in pubkeys]
+    redeem_script = Script.multisig_script(m, sorted(pubkeys_bytes))
+    fmt = Address.FMT_CASHADDR_BCH
+    return Address.from_multisig_script(redeem_script).to_full_string(fmt)
+
+
+def are_addresses_identical(addr1: str, addr2: str) -> bool:
+    """Compare 2 addresses. These addresses can be of a different format.
+
+    :param addr1:
+    :param addr2:
+    :return:
+    """
+    addr1 = Address.from_string(addr1)
+    addr2 = Address.from_string(addr2)
+    fmt = Address.FMT_LEGACY
+    return addr1.to_string(fmt) == addr2.to_string(fmt)
