@@ -3,12 +3,12 @@ from PySide2 import QtGui
 import base64
 
 from .crypto import (
-    compare_pubkeys,
     is_private_key,
     is_address,
     sign_message,
-    verify_signature_from_address,
-    verify_signature_from_pubkey,
+    verify_signature_with_address,
+    verify_signature_with_privkey,
+    verify_signature_with_pubkey,
 )
 
 
@@ -124,18 +124,24 @@ class VerifyWidget(QtWidgets.QWidget):
             return
 
         if is_address(key):
-            is_verified = verify_signature_from_address(
+            is_verified = verify_signature_with_address(
+                key, self._message, self._signature
+            )
+        elif is_private_key(key):
+            is_verified = verify_signature_with_privkey(
                 key, self._message, self._signature
             )
         else:
-            is_verified = verify_signature_from_pubkey(
+            is_verified = verify_signature_with_pubkey(
                 key, self._message, self._signature
             )
 
         if is_verified:
             self.verification_label.setText('<p style="color:green;">✓ OK</p>')
         else:
-            self.verification_label.setText('<p style="color:red;">✗ Bad signature or key</p>')
+            self.verification_label.setText(
+                '<p style="color:red;">✗ Bad signature or key</p>'
+            )
 
 
 class MainWidget(QtWidgets.QWidget):

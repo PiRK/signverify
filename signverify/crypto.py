@@ -1,4 +1,3 @@
-
 import base64
 import binascii
 import ecdsa
@@ -74,7 +73,7 @@ def is_address(addr: str) -> bool:
     return Address.is_valid(addr.strip())
 
 
-def verify_signature_from_address(address: str, message: str, signature: str) -> bool:
+def verify_signature_with_address(address: str, message: str, signature: str) -> bool:
     """Verify a message signature using a bitcoin address.
 
     :param address: Bitcoin address, either legacy or cashaddr
@@ -86,12 +85,12 @@ def verify_signature_from_address(address: str, message: str, signature: str) ->
     except binascii.Error:
         return False
     addr = Address.from_string(address)
-    message_bytes = message.encode('utf-8')
+    message_bytes = message.encode("utf-8")
 
     return bitcoin.verify_message(addr, sig, message_bytes)
 
 
-def verify_signature_from_pubkey(pubkey: str, message: str, signature: str) -> bool:
+def verify_signature_with_pubkey(pubkey: str, message: str, signature: str) -> bool:
     """Verify a message signature using a public key
 
     :param pubkey: Bitcoin public key as a hexadecimal string (raw or compressed)
@@ -113,7 +112,9 @@ def verify_signature_from_pubkey(pubkey: str, message: str, signature: str) -> b
     return compare_pubkeys(derived_pubkey, pubkey_bytes)
 
 
-def verify_signature_with_privkey(wif_privkey: str, message: str, signature: str) -> bool:
+def verify_signature_with_privkey(
+    wif_privkey: str, message: str, signature: str
+) -> bool:
     try:
         sig = base64.b64decode(signature)
     except binascii.Error:
