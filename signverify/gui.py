@@ -3,6 +3,8 @@ from PySide2 import QtGui
 import base64
 from typing import List, Optional
 
+from electroncash.address import ScriptError, AddressError
+
 from .crypto import (
     are_addresses_identical,
     is_private_key,
@@ -190,14 +192,20 @@ class MultisigWidget(QtWidgets.QWidget):
 
         layout.addWidget(QtWidgets.QLabel("Public keys (one per line)"))
         self.pubkeys_edit = QtWidgets.QTextEdit()
+        self.pubkeys_edit.setToolTip(
+            "Enter all the public keys recorded in the redeem script, one key per line."
+        )
         self.pubkeys_edit.setAcceptRichText(False)
         layout.addWidget(self.pubkeys_edit)
 
         m_sublayout = QtWidgets.QHBoxLayout()
         layout.addLayout(m_sublayout)
         m_sublayout.addWidget(QtWidgets.QLabel("M: "))
-        self.m_edit = QtWidgets.QLineEdit()
-        self.m_edit.setValidator(QtGui.QIntValidator(1, MAX_PUBKEYS_PER_MULTISIG))
+        self.m_edit = QtWidgets.QSpinBox()
+        self.m_edit.setToolTip(
+            "Enter the required number of signatures to unlock the redeem script"
+        )
+        self.m_edit.setRange(1, MAX_PUBKEYS_PER_MULTISIG)
         m_sublayout.addWidget(self.m_edit)
         m_sublayout.addStretch(1)
 
@@ -208,6 +216,7 @@ class MultisigWidget(QtWidgets.QWidget):
 
         layout.addWidget(QtWidgets.QLabel("p2sh address"))
         self.p2sh_edit = QtWidgets.QLineEdit()
+        self.p2sh_edit.setToolTip("Enter the p2sh address you want to check")
         layout.addWidget(self.p2sh_edit)
 
         sublayout = QtWidgets.QHBoxLayout()
@@ -220,7 +229,7 @@ class MultisigWidget(QtWidgets.QWidget):
         self._pubkeys: List[str] = []
         """List of hex encoded public keys"""
 
-        self._m: Optional[int] = None
+        self._m: int = self.m_edit.value()
         """Minimal number of signatures required to unlock the script"""
 
         self._p2sh: str = ""
@@ -230,7 +239,7 @@ class MultisigWidget(QtWidgets.QWidget):
 
         self.pubkeys_edit.textChanged.connect(self._on_pubkeys_changed)
         self.p2sh_edit.textChanged.connect(self._on_p2sh_changed)
-        self.m_edit.textChanged.connect(self._on_m_changed)
+        self.m_edit.valueChanged.connect(self._on_m_changed)
 
     def _on_pubkeys_changed(self):
         lines = self.pubkeys_edit.toPlainText().split("\n")
@@ -245,11 +254,8 @@ class MultisigWidget(QtWidgets.QWidget):
         self.construct_redeem_script()
         self.check_script()
 
-    def _on_m_changed(self, text):
-        if not text.strip():
-            self._m = None
-        else:
-            self._m = int(text.strip())
+    def _on_m_changed(self, value):
+        self._m = value
         self.construct_redeem_script()
         self.check_script()
 
@@ -259,7 +265,7 @@ class MultisigWidget(QtWidgets.QWidget):
 
     def construct_redeem_script(self):
         # construct redeem script
-        if not self._pubkeys or self._m is None:
+        if not self._pubkeys or not self._m:
             self.redeem_script_display.clear()
             self._redeem_script = ""
             return
@@ -273,15 +279,21 @@ class MultisigWidget(QtWidgets.QWidget):
 
     def check_script(self):
         # check against p2sh address
-        if not self._p2sh or self._m is None:
+        if not self._p2sh or not self._m:
             self.verification_label.setText("Missing parameters (p2sh or M)")
             return
         if not self._pubkeys:
             self.verification_label.setText("Missing or incorrect public keys")
             return
+        try:
+            derived_p2sh = pubkeys_to_multisig_p2sh(self._pubkeys, self._m)
+            ok = are_addresses_identical(derived_p2sh, self._p2sh)
+        except (ScriptError, AddressError) as e:
+            self.verification_label.setText(
+                f'<p style="color:red;">{e}</p>')
+            return
 
-        derived_p2sh = pubkeys_to_multisig_p2sh(self._pubkeys, self._m)
-        if are_addresses_identical(derived_p2sh, self._p2sh):
+        if ok:
             self.verification_label.setText('<p style="color:green;">✓ OK</p>')
         else:
             self.verification_label.setText(
