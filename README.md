@@ -31,3 +31,11 @@ see the changes you make to the code, you can run the application using the comm
 `python -m signverify`. You need to be in the root directory for the repository
 for this to work, else python will execute the `signverify` package previously installed
 on the Python lib path.
+
+## Screenshots
+
+![Signing using a private key](doc/sign_privkey.png "Signing using a private key")
+
+![Verifying using a public key](doc/verify_pubkey.png "Verifying using a public key")
+
+![Verifying a multisig script](doc/verify_multisig_script.png "Verifying a multisig script")
